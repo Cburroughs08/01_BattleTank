@@ -24,8 +24,12 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
+protected:
+
+	UPROPERTY(EditAnywhere, Category= "Setup")
+	float radius = 10000;
+
 private:
 		
 
-	float radius = 3000;
 };
