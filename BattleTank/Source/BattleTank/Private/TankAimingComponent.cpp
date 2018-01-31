@@ -7,6 +7,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "TankBarrel.h"
 #include "TankTurret.h"
+#include "Projectile.h"
+#include "Engine/World.h"
 
 // Sets default values for this component's properties
 UTankAimingComponent::UTankAimingComponent()
@@ -18,16 +20,10 @@ UTankAimingComponent::UTankAimingComponent()
 	// ...
 }
 
-void UTankAimingComponent::SetBarrelRef(UTankBarrel* BarrelSet) {
+void UTankAimingComponent::Initialise(UTankBarrel* BarrelToSet, UTankTurret* TurretToSet) {
 
-	Barrel = BarrelSet;
-
-}
-
-
-void UTankAimingComponent::SetTurretRef(UTankTurret* TurretSet) {
-
-	Turret = TurretSet;
+	Barrel = BarrelToSet;
+	Turret = TurretToSet;
 
 }
 
@@ -35,22 +31,22 @@ void UTankAimingComponent::SetTurretRef(UTankTurret* TurretSet) {
 // Called when the game starts
 void UTankAimingComponent::BeginPlay()
 {
-	Super::BeginPlay();
-
+	//Super::BeginPlay();
+	LastFireTime = FPlatformTime::Seconds();
 	// ...
 	
 }
 
 
 // Called every frame
-void UTankAimingComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
-{
-	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+//void UTankAimingComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
+//{
+//	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+//
+//	// ...
+//}
 
-	// ...
-}
-
-void UTankAimingComponent::AimAt(FVector HitLocation, float LaunchSpeed) {
+void UTankAimingComponent::AimAt(FVector HitLocation) {
 
 	if (!Barrel) { return; }
 
@@ -62,7 +58,7 @@ void UTankAimingComponent::AimAt(FVector HitLocation, float LaunchSpeed) {
 		OutLaunchVelocity,
 		StartLocation,
 		HitLocation,
-		LaunchSpeed,
+		launchspeed,
 		false,
 		0,
 		0,
@@ -71,7 +67,7 @@ void UTankAimingComponent::AimAt(FVector HitLocation, float LaunchSpeed) {
 
 		)
 	{
-		auto aimdirection = OutLaunchVelocity.GetSafeNormal();
+	    aimdirection = OutLaunchVelocity.GetSafeNormal();
 		MoveBarrel(aimdirection);
 		MoveTurret(aimdirection);
 
@@ -82,7 +78,7 @@ void UTankAimingComponent::AimAt(FVector HitLocation, float LaunchSpeed) {
 }
 
 void UTankAimingComponent::MoveBarrel(FVector AimDirection) {
-
+	if (!Barrel) { return; }
 	auto BarrelRotator = Barrel->GetForwardVector().Rotation();
 	auto AimAsRotator = AimDirection.Rotation();
 	auto DeltaRotator = AimAsRotator - BarrelRotator;
@@ -92,6 +88,7 @@ void UTankAimingComponent::MoveBarrel(FVector AimDirection) {
 
 void UTankAimingComponent::MoveTurret(FVector AimDirection) {
 
+	if (!Turret) { return; }
 	auto BarrelRotator = Turret->GetForwardVector().Rotation();
 	
 	auto AimAsRotator = AimDirection.Rotation();
@@ -99,4 +96,51 @@ void UTankAimingComponent::MoveTurret(FVector AimDirection) {
 	
 
 	Turret->TurnTurret(DeltaRotator.Yaw);
+}
+
+void UTankAimingComponent::fire() {
+
+	
+
+	if (FiringState != EFiringState::Reloading) {
+
+		if (!Barrel ) { return; }
+		if (!ProjectileBlueprint) { return; }
+		auto projectile = GetWorld()->SpawnActor<AProjectile>(
+			ProjectileBlueprint,
+			Barrel->GetSocketLocation(FName("Projectile")),
+			Barrel->GetSocketRotation(FName("Projectile"))
+			);
+
+		projectile->LaunchProjectile(launchspeed);
+		LastFireTime = FPlatformTime::Seconds();
+	}
+}
+
+
+void UTankAimingComponent::TickComponent(float DeltaTime, enum ELevelTick TickType, FActorComponentTickFunction *ThisTickFunction) {
+
+	//UE_LOG(LogTemp, Warning, TEXT("Ticking"))
+	if ((FPlatformTime::Seconds() - LastFireTime) < ReloadTime) {
+
+		FiringState = EFiringState::Reloading;
+	}
+	else if (IsBarrelMoving()) {
+
+		FiringState = EFiringState::Aiming;
+	}
+	else {
+
+		FiringState = EFiringState::locked;
+	}
+}
+
+bool UTankAimingComponent::IsBarrelMoving() {
+
+	if (!Barrel) { return false; }
+
+	auto BarrelForward = Barrel->GetForwardVector();
+
+	return !BarrelForward.Equals(aimdirection, 0.01);
+
 }
