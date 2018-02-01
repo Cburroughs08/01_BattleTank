@@ -81,9 +81,12 @@ private:
 	bool IsBarrelMoving();
 
 	double LastFireTime;
+
+	UPROPERTY(EditDefaultsOnly, Category= "Firing")
 	float ReloadTime = 3.f;
 
 	FVector aimdirection;
 
-	int RoundsLeft = 3;
+	UPROPERTY(EditDefaultsOnly, Category = "Firing")
+	int32 RoundsLeft = 3;
 };
